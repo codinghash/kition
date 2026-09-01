@@ -17,16 +17,24 @@ export function KitionReferralCard({ session }: { session: PortalAccountSession 
   const copyVersionRef = useRef(0)
   const sessionIdentityRef = useRef(session.access_token)
   const titleId = useId()
-  const linkLabelId = useId()
+  const linkControlId = useId()
   const summary = state.summary
   const rewardPerInvite = summary?.reward_per_invite ?? 10_000
   const formatNumber = (value: number) => new Intl.NumberFormat(i18n.resolvedLanguage).format(value)
 
   useEffect(() => {
-    sessionIdentityRef.current = session.access_token
+    const sessionIdentity = session.access_token
+    sessionIdentityRef.current = sessionIdentity
     copyVersionRef.current += 1
     setCopyStatus('idle')
     trackProductEvent('referral_invite_viewed')
+
+    return () => {
+      copyVersionRef.current += 1
+      if (sessionIdentityRef.current === sessionIdentity) {
+        sessionIdentityRef.current = ''
+      }
+    }
   }, [session.access_token])
 
   async function copyInviteLink() {
@@ -38,19 +46,19 @@ export function KitionReferralCard({ session }: { session: PortalAccountSession 
 
     try {
       await copyTextToClipboard(summary.invite_url)
-      trackProductEvent('referral_invite_copy_completed', { result: 'success' })
       if (
         copyVersion === copyVersionRef.current
         && targetIdentity === sessionIdentityRef.current
       ) {
+        trackProductEvent('referral_invite_copy_completed', { result: 'success' })
         setCopyStatus('copied')
       }
     } catch {
-      trackProductEvent('referral_invite_copy_completed', { result: 'failure' })
       if (
         copyVersion === copyVersionRef.current
         && targetIdentity === sessionIdentityRef.current
       ) {
+        trackProductEvent('referral_invite_copy_completed', { result: 'failure' })
         setCopyStatus('error')
       }
     }
@@ -108,9 +116,18 @@ export function KitionReferralCard({ session }: { session: PortalAccountSession 
 
       {state.status === 'success' && summary ? (
         <div className="kition-referral-card__content">
-          <div className="kition-referral-card__link" aria-labelledby={linkLabelId}>
-            <span id={linkLabelId}>{t('account.referral.linkLabel')}</span>
-            <p data-testid="kition-referral-url">{summary.invite_url}</p>
+          <div className="kition-referral-card__link">
+            <label htmlFor={linkControlId}>{t('account.referral.linkLabel')}</label>
+            <textarea
+              id={linkControlId}
+              value={summary.invite_url}
+              readOnly
+              rows={2}
+              wrap="soft"
+              spellCheck={false}
+              onFocus={(event) => event.currentTarget.select()}
+              data-testid="kition-referral-url"
+            />
           </div>
 
           <Button

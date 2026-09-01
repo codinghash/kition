@@ -27,6 +27,14 @@ const session: PortalAccountSession = {
   expires_at: 1_785_542_400_000,
 }
 
+const sessionB: PortalAccountSession = {
+  ...session,
+  access_token: 'account-token-b',
+  token_prefix: 'account-b',
+  user_id: 8,
+  user_email: 'member-b@kition.ai',
+}
+
 function summary(overrides: Partial<PortalReferralSummary> = {}): PortalReferralSummary {
   return {
     invite_code: 'INVITE123',
@@ -55,17 +63,36 @@ function referralState(
   }
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve
+    reject = promiseReject
+  })
+  return { promise, resolve, reject }
+}
+
 let container: HTMLDivElement
 let root: Root | null = null
 
-async function mount() {
-  container = document.createElement('div')
-  document.body.appendChild(container)
+async function renderCard(cardSession: PortalAccountSession = session) {
   await act(async () => {
-    root = createRoot(container)
-    root.render(createElement(KitionReferralCard, { session }))
+    root ||= createRoot(container)
+    root.render(createElement(KitionReferralCard, { session: cardSession }))
     await Promise.resolve()
   })
+}
+
+async function mount(cardSession: PortalAccountSession = session) {
+  container = document.createElement('div')
+  document.body.appendChild(container)
+  await renderCard(cardSession)
+}
+
+async function unmountCard() {
+  await act(async () => root?.unmount())
+  root = null
 }
 
 beforeEach(() => {
@@ -75,8 +102,7 @@ beforeEach(() => {
 })
 
 afterEach(async () => {
-  await act(async () => root?.unmount())
-  root = null
+  await unmountCard()
   container?.remove()
 })
 
@@ -110,8 +136,17 @@ describe('KitionReferralCard', () => {
 
     expect(container.textContent).toContain('You earn 10,000 credits for each rewarded invite')
     expect(container.textContent).toContain('Referral credits are awarded to you, not the person you invite')
-    expect(container.querySelector('[data-testid="kition-referral-url"]')?.textContent)
-      .toBe('https://kition.ai/signup?invite=INVITE123')
+    const inviteURL = container.querySelector('[data-testid="kition-referral-url"]') as HTMLTextAreaElement
+    const inviteURLLabel = container.querySelector(`label[for="${inviteURL.id}"]`)
+    expect(inviteURLLabel?.textContent).toBe('Invite link')
+    expect(inviteURL.value).toBe('https://kition.ai/signup?invite=INVITE123')
+    expect(inviteURL.readOnly).toBe(true)
+    expect(inviteURL.tabIndex).toBe(0)
+
+    inviteURL.focus()
+    expect(document.activeElement).toBe(inviteURL)
+    expect(inviteURL.selectionStart).toBe(0)
+    expect(inviteURL.selectionEnd).toBe(inviteURL.value.length)
     expect(container.textContent).toContain('Rewarded invites')
     expect(container.textContent).toContain('3')
     expect(container.textContent).toContain('Credits earned')
@@ -160,5 +195,53 @@ describe('KitionReferralCard', () => {
       .toContain('Could not copy the invite link')
     expect(trackProductEvent).toHaveBeenCalledWith('referral_invite_copy_completed', { result: 'failure' })
     expect(JSON.stringify(trackProductEvent.mock.calls)).not.toContain('clipboard contains private details')
+  })
+
+  it('does not emit copy success analytics when a deferred clipboard write resolves after unmount', async () => {
+    const pending = deferred<void>()
+    copyTextToClipboard.mockReturnValueOnce(pending.promise)
+    await mount()
+
+    await act(async () => {
+      const copy = container.querySelector('[data-testid="kition-referral-copy"]') as HTMLButtonElement
+      copy.click()
+      await Promise.resolve()
+    })
+    expect(copyTextToClipboard).toHaveBeenCalledTimes(1)
+
+    await unmountCard()
+    await act(async () => {
+      pending.resolve()
+      await pending.promise
+    })
+
+    expect(trackProductEvent).not.toHaveBeenCalledWith(
+      'referral_invite_copy_completed',
+      { result: 'success' },
+    )
+  })
+
+  it('does not emit copy failure analytics or feedback after the account session changes', async () => {
+    const pending = deferred<void>()
+    copyTextToClipboard.mockReturnValueOnce(pending.promise)
+    await mount()
+
+    await act(async () => {
+      const copy = container.querySelector('[data-testid="kition-referral-copy"]') as HTMLButtonElement
+      copy.click()
+      await Promise.resolve()
+    })
+    await renderCard(sessionB)
+
+    await act(async () => {
+      pending.reject(new Error('stale clipboard failure'))
+      await pending.promise.catch(() => {})
+    })
+
+    expect(trackProductEvent).not.toHaveBeenCalledWith(
+      'referral_invite_copy_completed',
+      { result: 'failure' },
+    )
+    expect(container.querySelector('[role="alert"]')).toBeNull()
   })
 })

@@ -163,6 +163,43 @@ describe('useKitionReferral', () => {
     expect(ref.current?.state.status).toBe('success')
   })
 
+  it('deduplicates one request across two hook consumers for the same session', async () => {
+    const pending = deferred<PortalReferralSummary>()
+    getPortalReferralSummary.mockReturnValue(pending.promise)
+    const firstRef: { current: ReturnType<typeof useKitionReferral> | null } = { current: null }
+    const secondRef: { current: ReturnType<typeof useKitionReferral> | null } = { current: null }
+
+    function FirstConsumer() {
+      firstRef.current = useKitionReferral(sessionA)
+      return null
+    }
+
+    function SecondConsumer() {
+      secondRef.current = useKitionReferral(sessionA)
+      return null
+    }
+
+    await act(async () => {
+      root = createRoot(container)
+      root.render(createElement('div', null, createElement(FirstConsumer), createElement(SecondConsumer)))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(getPortalReferralSummary).toHaveBeenCalledTimes(1)
+    expect(firstRef.current?.state.status).toBe('loading')
+    expect(secondRef.current?.state.status).toBe('loading')
+
+    const result = referralSummary()
+    await act(async () => {
+      pending.resolve(result)
+      await pending.promise
+    })
+
+    expect(firstRef.current?.state.summary).toEqual(result)
+    expect(secondRef.current?.state.summary).toEqual(result)
+  })
+
   it('ignores an old session response after the authenticated identity changes', async () => {
     const first = deferred<PortalReferralSummary>()
     const second = deferred<PortalReferralSummary>()

@@ -950,16 +950,16 @@
   }
 
   .kition-referral-card__link {
-    @apply rounded-lg border bg-muted/40 px-3 py-2.5;
-    border-color: hsl(var(--border));
+    @apply min-w-0;
   }
 
-  .kition-referral-card__link > span {
+  .kition-referral-card__link > label {
     @apply text-xs font-medium text-muted-foreground;
   }
 
-  .kition-referral-card__link p {
-    @apply mt-1 select-text break-all text-sm leading-5 text-foreground;
+  .kition-referral-card__link textarea {
+    @apply mt-1.5 min-h-14 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm leading-5 text-foreground outline-none transition-all focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20;
+    overflow-wrap: anywhere;
   }
 
   .kition-referral-card__copy {
