@@ -1,4 +1,4 @@
-import { act, createElement } from 'react'
+import { act, createElement, useLayoutEffect } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -242,6 +242,54 @@ describe('KitionReferralCard', () => {
       'referral_invite_copy_completed',
       { result: 'failure' },
     )
+    expect(container.querySelector('[role="alert"]')).toBeNull()
+  })
+
+  it('invalidates an old clipboard operation during render before passive session effects run', async () => {
+    const pending = deferred<void>()
+    const layoutCommitted = deferred<void>()
+    copyTextToClipboard.mockReturnValueOnce(pending.promise)
+    let resolveDuringLayout = false
+    let resolvedBeforePassiveEffects = false
+
+    function SessionTransitionHarness({ cardSession }: { cardSession: PortalAccountSession }) {
+      useLayoutEffect(() => {
+        if (resolveDuringLayout && cardSession.access_token === sessionB.access_token) {
+          resolvedBeforePassiveEffects = true
+          pending.resolve()
+          layoutCommitted.resolve()
+        }
+      }, [cardSession])
+
+      return createElement(KitionReferralCard, { session: cardSession })
+    }
+
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    await act(async () => {
+      root = createRoot(container)
+      root.render(createElement(SessionTransitionHarness, { cardSession: session }))
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      const copy = container.querySelector('[data-testid="kition-referral-copy"]') as HTMLButtonElement
+      copy.click()
+      await Promise.resolve()
+    })
+    trackProductEvent.mockClear()
+
+    resolveDuringLayout = true
+    ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = false
+    root.render(createElement(SessionTransitionHarness, { cardSession: sessionB }))
+    await layoutCommitted.promise
+    ;(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true
+
+    expect(resolvedBeforePassiveEffects).toBe(true)
+    expect(trackProductEvent.mock.calls.some(
+      ([name]) => name === 'referral_invite_copy_completed',
+    )).toBe(false)
+    expect(container.textContent).not.toContain('Invite link copied')
     expect(container.querySelector('[role="alert"]')).toBeNull()
   })
 })

@@ -16,6 +16,10 @@ export function KitionReferralCard({ session }: { session: PortalAccountSession 
   const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle')
   const copyVersionRef = useRef(0)
   const sessionIdentityRef = useRef(session.access_token)
+  if (sessionIdentityRef.current !== session.access_token) {
+    sessionIdentityRef.current = session.access_token
+    copyVersionRef.current += 1
+  }
   const titleId = useId()
   const linkControlId = useId()
   const summary = state.summary
