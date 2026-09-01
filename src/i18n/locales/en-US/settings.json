@@ -231,6 +231,23 @@
       "canceled": "Canceled",
       "inactive": "Inactive"
     },
+    "referral": {
+      "title": "Invite friends",
+      "description": "You earn {{credits}} credits for each rewarded invite. Referral credits are awarded to you, not the person you invite.",
+      "loading": "Loading invite details",
+      "unavailable": "Invite details are temporarily unavailable.",
+      "retry": "Try again",
+      "linkLabel": "Invite link",
+      "copy": "Copy invite link",
+      "copying": "Copying invite link",
+      "copied": "Invite link copied",
+      "copyFailed": "Could not copy the invite link. Select the URL and copy it manually.",
+      "rewardedInvites": "Rewarded invites",
+      "creditsEarned": "Credits earned",
+      "availability": "Invite availability",
+      "remaining": "{{remaining}} of {{limit}} invites remaining",
+      "unlimited": "Unlimited invites"
+    },
     "signOut": "Sign out",
     "support": "Support",
     "terms": "Terms",

@@ -231,6 +231,23 @@
       "canceled": "Cancelada",
       "inactive": "Inactiva"
     },
+    "referral": {
+      "title": "Invita a tus amigos",
+      "description": "Ganas {{credits}} créditos por cada invitación recompensada. Los créditos de invitación se te conceden a ti, no a la persona que invitas.",
+      "loading": "Cargando detalles de la invitación",
+      "unavailable": "Los detalles de la invitación no están disponibles temporalmente.",
+      "retry": "Volver a intentar",
+      "linkLabel": "Enlace de invitación",
+      "copy": "Copiar enlace de invitación",
+      "copying": "Copiando enlace de invitación",
+      "copied": "Enlace de invitación copiado",
+      "copyFailed": "No se pudo copiar el enlace de invitación. Selecciona la URL y cópiala manualmente.",
+      "rewardedInvites": "Invitaciones recompensadas",
+      "creditsEarned": "Créditos obtenidos",
+      "availability": "Disponibilidad de invitaciones",
+      "remaining": "Quedan {{remaining}} de {{limit}} invitaciones",
+      "unlimited": "Invitaciones ilimitadas"
+    },
     "signOut": "Cerrar sesión",
     "support": "Soporte",
     "terms": "Términos",

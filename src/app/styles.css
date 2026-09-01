@@ -895,6 +895,106 @@
     @apply text-foreground;
   }
 
+  .kition-referral-card {
+    @apply mt-5 rounded-xl border bg-card p-4 text-card-foreground shadow-soft;
+    border-color: hsl(var(--border));
+  }
+
+  .kition-referral-card__header {
+    @apply flex items-start gap-3;
+  }
+
+  .kition-referral-card__icon {
+    @apply grid size-8 shrink-0 place-items-center rounded-lg bg-accent text-accent-foreground;
+  }
+
+  .kition-referral-card__header h2 {
+    @apply text-base font-semibold text-foreground;
+  }
+
+  .kition-referral-card__header p {
+    @apply mt-1 text-xs leading-5 text-muted-foreground;
+  }
+
+  .kition-referral-card__loading,
+  .kition-referral-card__unavailable {
+    @apply mt-4 rounded-lg border bg-muted/40 p-3;
+    border-color: hsl(var(--border));
+  }
+
+  .kition-referral-card__loading-label {
+    @apply flex items-center gap-2 text-xs font-medium text-muted-foreground;
+  }
+
+  .kition-referral-card__skeleton {
+    @apply mt-3 block h-3 w-full animate-pulse rounded bg-muted;
+  }
+
+  .kition-referral-card__skeleton.is-short {
+    @apply mt-2 w-2/3;
+  }
+
+  .kition-referral-card__unavailable {
+    @apply flex flex-wrap items-center justify-between gap-3;
+    border-color: hsl(var(--destructive-border));
+    background: hsl(var(--destructive-background));
+  }
+
+  .kition-referral-card__unavailable p {
+    @apply min-w-0 flex-1 text-xs leading-5;
+    color: hsl(var(--destructive));
+  }
+
+  .kition-referral-card__content {
+    @apply mt-4;
+  }
+
+  .kition-referral-card__link {
+    @apply rounded-lg border bg-muted/40 px-3 py-2.5;
+    border-color: hsl(var(--border));
+  }
+
+  .kition-referral-card__link > span {
+    @apply text-xs font-medium text-muted-foreground;
+  }
+
+  .kition-referral-card__link p {
+    @apply mt-1 select-text break-all text-sm leading-5 text-foreground;
+  }
+
+  .kition-referral-card__copy {
+    @apply mt-3 rounded-lg;
+  }
+
+  .kition-referral-card__copy-feedback {
+    @apply mt-2 text-xs leading-5;
+  }
+
+  .kition-referral-card__copy-feedback.is-success {
+    color: hsl(var(--success));
+  }
+
+  .kition-referral-card__copy-feedback.is-error {
+    color: hsl(var(--destructive));
+  }
+
+  .kition-referral-card__metrics {
+    @apply mt-4 grid grid-cols-3 gap-2 border-t pt-4;
+    border-color: hsl(var(--border));
+  }
+
+  .kition-referral-card__metrics > div {
+    @apply min-w-0 rounded-lg bg-muted/40 px-3 py-2.5;
+  }
+
+  .kition-referral-card__metrics dt {
+    @apply text-xs leading-4 text-muted-foreground;
+  }
+
+  .kition-referral-card__metrics dd {
+    @apply mt-1 break-words text-sm font-semibold leading-5 text-foreground;
+  }
+
   .kition-account-panel__actions {
     @apply mt-5 flex flex-wrap items-center gap-2;
   }
@@ -9489,6 +9589,15 @@
 
   .settings-account-pane .kition-account-panel__actions > button,
   .settings-account-pane .kition-account-panel__primary {
+    width: 100%;
+  }
+
+  .settings-account-pane .kition-referral-card__metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-account-pane .kition-referral-card__copy,
+  .settings-account-pane .kition-referral-card__unavailable > button {
     width: 100%;
   }
 

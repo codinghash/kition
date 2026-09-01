@@ -55,8 +55,37 @@ describe('product analytics privacy boundary', () => {
     const schema = JSON.parse(readFileSync(resolve('contracts/analytics/product-event.schema.json'), 'utf8'))
     expect(schema.additionalProperties).toBe(false)
     expect(schema.properties.name.enum).toEqual(PRODUCT_ANALYTICS_EVENT_NAMES)
-    for (const forbidden of ['document_name', 'document_path', 'prompt', 'response', 'url', 'email', 'user_id', 'account_id']) {
+    for (const forbidden of [
+      'document_name',
+      'document_path',
+      'prompt',
+      'response',
+      'url',
+      'email',
+      'user_id',
+      'account_id',
+      'invite_code',
+      'invite_url',
+      'clipboard_content',
+    ]) {
       expect(Object.keys(schema.properties)).not.toContain(forbidden)
+    }
+  })
+
+  it('allows referral view and copy-result events without referral content fields', () => {
+    expect(PRODUCT_ANALYTICS_EVENT_NAMES).toContain('referral_invite_viewed')
+    expect(PRODUCT_ANALYTICS_EVENT_NAMES).toContain('referral_invite_copy_completed')
+    expect(validateProductAnalyticsEvent(validEvent({
+      name: 'referral_invite_copy_completed',
+      result: 'success',
+    })).ok).toBe(true)
+
+    for (const field of ['invite_code', 'invite_url', 'clipboard_content']) {
+      expect(validateProductAnalyticsEvent(validEvent({
+        name: 'referral_invite_copy_completed',
+        result: 'success',
+        [field]: 'private referral content',
+      })).ok).toBe(false)
     }
   })
 

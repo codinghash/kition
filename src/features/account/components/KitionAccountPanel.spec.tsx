@@ -18,6 +18,11 @@ vi.mock('@/features/analytics/lib/productAnalytics', () => ({
   trackProductEvent: analyticsMocks.track,
   trackProductEventOnce: analyticsMocks.trackOnce,
 }))
+vi.mock('./KitionReferralCard', () => ({
+  KitionReferralCard: ({ session }: { session: { user_email?: string } }) => (
+    <div data-testid="mock-kition-referral-card">Invite card for {session.user_email}</div>
+  ),
+}))
 
 import { KitionAccountPanel } from './KitionAccountPanel'
 
@@ -128,6 +133,14 @@ describe('KitionAccountPanel', () => {
     expect(container.textContent).toContain('Purchased credits')
     expect(container.textContent).toContain('27 / 50')
     expect(container.querySelector('[data-testid="kition-account-manage-plan"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="mock-kition-referral-card"]')?.textContent)
+      .toContain('member@kition.ai')
+  })
+
+  it('does not show invite sharing while signed out', async () => {
+    await mount()
+
+    expect(container.querySelector('[data-testid="mock-kition-referral-card"]')).toBeNull()
   })
 
   it.each([
