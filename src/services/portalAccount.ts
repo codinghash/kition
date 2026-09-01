@@ -1,9 +1,11 @@
 import {
   getPortalConnectResult,
+  getPortalReferralSummary as requestPortalReferralSummary,
   getPortalSessionStatus,
   logoutPortalSession,
   startPortalConnect,
   type PortalAccountSession,
+  type PortalReferralSummary,
 } from '@/api/desktop'
 import { deleteSecureValue, getSecureValue, openExternalURL, setSecureValue } from '@/services/desktop'
 import {
@@ -32,7 +34,20 @@ export class PortalAccountRestoreFailure extends Error {
 
 let portalAccountRestorePromise: Promise<PortalAccountSession | null> | null = null
 
-export type { PortalAccountSession } from '@/api/desktop'
+export type { PortalAccountSession, PortalReferralSummary } from '@/api/desktop'
+
+const PORTAL_REFERRAL_SUMMARY_FIELDS = [
+  'invite_code',
+  'invite_url',
+  'reward_per_invite',
+  'referral_count',
+  'rewarded_referral_count',
+  'rewarded_credits',
+  'invite_limit',
+  'invite_remaining',
+] as const
+
+const PORTAL_REFERRAL_REWARD_PER_INVITE = 10_000
 
 function isKnownProviderKind(value: string): value is DesktopProviderKind {
   return desktopProviderCatalog.some((descriptor) => descriptor.kind === value)
@@ -156,6 +171,82 @@ function optionalStringOrNull(value: unknown): string | null | undefined {
   }
   const text = String(value).trim()
   return text ? text : undefined
+}
+
+function isNonNegativeSafeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+}
+
+function isHTTPSURL(value: string) {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' && !url.username && !url.password
+  } catch {
+    return false
+  }
+}
+
+function normalizePortalReferralSummary(value: unknown): PortalReferralSummary | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null
+  }
+
+  const record = value as Record<string, unknown>
+  const fields = Object.keys(record).sort()
+  const expectedFields = [...PORTAL_REFERRAL_SUMMARY_FIELDS].sort()
+  if (
+    fields.length !== expectedFields.length
+    || fields.some((field, index) => field !== expectedFields[index])
+  ) {
+    return null
+  }
+
+  const inviteCode = typeof record.invite_code === 'string' ? record.invite_code.trim() : ''
+  const inviteURL = typeof record.invite_url === 'string' ? record.invite_url.trim() : ''
+  if (!inviteCode || !inviteURL || !isHTTPSURL(inviteURL)) {
+    return null
+  }
+
+  const rewardPerInvite = record.reward_per_invite
+  const referralCount = record.referral_count
+  const rewardedReferralCount = record.rewarded_referral_count
+  const rewardedCredits = record.rewarded_credits
+  const inviteLimit = record.invite_limit
+  const inviteRemaining = record.invite_remaining
+  if (
+    !isNonNegativeSafeInteger(rewardPerInvite)
+    || !isNonNegativeSafeInteger(referralCount)
+    || !isNonNegativeSafeInteger(rewardedReferralCount)
+    || !isNonNegativeSafeInteger(rewardedCredits)
+    || !isNonNegativeSafeInteger(inviteLimit)
+    || !isNonNegativeSafeInteger(inviteRemaining)
+  ) {
+    return null
+  }
+
+  if (rewardPerInvite !== PORTAL_REFERRAL_REWARD_PER_INVITE) {
+    return null
+  }
+  if (rewardedReferralCount > referralCount) {
+    return null
+  }
+  if (
+    (inviteLimit === 0 && inviteRemaining !== 0)
+    || (inviteLimit > 0 && inviteRemaining > inviteLimit)
+  ) {
+    return null
+  }
+
+  return {
+    invite_code: inviteCode,
+    invite_url: inviteURL,
+    reward_per_invite: rewardPerInvite,
+    referral_count: referralCount,
+    rewarded_referral_count: rewardedReferralCount,
+    rewarded_credits: rewardedCredits,
+    invite_limit: inviteLimit,
+    invite_remaining: inviteRemaining,
+  }
 }
 
 function hasCreditSummary(session: PortalAccountSession) {
@@ -442,6 +533,14 @@ export async function ensurePortalAccountSessionRestored() {
     )
   }
   return session
+}
+
+export async function getPortalReferralSummary(): Promise<PortalReferralSummary> {
+  const summary = normalizePortalReferralSummary(await requestPortalReferralSummary())
+  if (!summary) {
+    throw new Error('Kition referral summary response is invalid.')
+  }
+  return summary
 }
 
 export async function connectPortalAccount(options: { signal?: AbortSignal } = {}) {

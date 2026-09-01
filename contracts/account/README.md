@@ -16,6 +16,21 @@ All action URLs are optional. The client validates their protocol before
 opening them and uses public Kition fallbacks where the product already has a
 documented destination.
 
+## Referral summary
+
+`referral-summary.schema.json` defines the on-demand response from
+`GET /api/v1/desktop/portal/referral`. The response contains the server-issued
+invite code and HTTPS invite URL, the fixed 10,000-credit reward per invite,
+referral and rewarded-referral counts, rewarded credits, and invite limit and
+remaining values. The client displays the returned invite URL without deriving
+or reconstructing it.
+
+All count, amount, and limit fields are finite non-negative safe integers. A
+rewarded-referral count cannot exceed the referral count. A positive invite
+limit is finite and the remaining count cannot exceed it; a zero limit is the
+unlimited sentinel and requires a zero remaining value. The referral summary is
+fetched after authentication and is not part of the persisted account session.
+
 ## Hosted authorization page
 
 The desktop client starts the existing portal connection flow and opens the

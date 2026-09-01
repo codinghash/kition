@@ -5,6 +5,7 @@ const secureValues = new Map<string, string>()
 const startPortalConnect = vi.fn()
 const getPortalConnectResult = vi.fn()
 const getPortalSessionStatus = vi.fn()
+const requestPortalReferralSummary = vi.fn()
 const logoutPortalSession = vi.fn()
 const syncProviderModelCatalog = vi.fn()
 const openExternalURL = vi.fn()
@@ -13,6 +14,7 @@ vi.mock('@/api/desktop', () => ({
   startPortalConnect,
   getPortalConnectResult,
   getPortalSessionStatus,
+  getPortalReferralSummary: requestPortalReferralSummary,
   logoutPortalSession,
 }))
 
@@ -49,6 +51,7 @@ describe('portal account service', () => {
     startPortalConnect.mockReset()
     getPortalConnectResult.mockReset()
     getPortalSessionStatus.mockReset()
+    requestPortalReferralSummary.mockReset()
     logoutPortalSession.mockReset()
     syncProviderModelCatalog.mockReset()
     syncProviderModelCatalog.mockImplementation(async (settings) => settings)
@@ -270,6 +273,172 @@ describe('portal account service', () => {
       credit_balance: 75,
       credit_summary: { credit_balance: 75 },
     })
+  })
+
+  it('normalizes a valid referral summary without persisting it in the account session', async () => {
+    requestPortalReferralSummary.mockResolvedValue({
+      invite_code: '  KITION100  ',
+      invite_url: '  https://kition.ai/signup?ref=KITION100  ',
+      reward_per_invite: 10_000,
+      referral_count: 7,
+      rewarded_referral_count: 5,
+      rewarded_credits: 50_000,
+      invite_limit: 20,
+      invite_remaining: 13,
+    })
+
+    const { getPortalReferralSummary } = await import('./portalAccount')
+    await expect(getPortalReferralSummary()).resolves.toEqual({
+      invite_code: 'KITION100',
+      invite_url: 'https://kition.ai/signup?ref=KITION100',
+      reward_per_invite: 10_000,
+      referral_count: 7,
+      rewarded_referral_count: 5,
+      rewarded_credits: 50_000,
+      invite_limit: 20,
+      invite_remaining: 13,
+    })
+    expect(secureValues.get('kition.portal.account.session.v1')).toBeUndefined()
+  })
+
+  it.each([
+    ['missing field', {
+      invite_code: 'KITION100',
+      invite_url: 'https://kition.ai/signup?ref=KITION100',
+      reward_per_invite: 10_000,
+      referral_count: 7,
+      rewarded_referral_count: 5,
+      rewarded_credits: 50_000,
+      invite_limit: 20,
+    }],
+    ['additional field', {
+      invite_code: 'KITION100',
+      invite_url: 'https://kition.ai/signup?ref=KITION100',
+      reward_per_invite: 10_000,
+      referral_count: 7,
+      rewarded_referral_count: 5,
+      rewarded_credits: 50_000,
+      invite_limit: 20,
+      invite_remaining: 13,
+      internal_status: 'approved',
+    }],
+    ['empty invite code', {
+      invite_code: '   ',
+      invite_url: 'https://kition.ai/signup?ref=KITION100',
+      reward_per_invite: 10_000,
+      referral_count: 7,
+      rewarded_referral_count: 5,
+      rewarded_credits: 50_000,
+      invite_limit: 20,
+      invite_remaining: 13,
+    }],
+    ['non-HTTPS invite URL', {
+      invite_code: 'KITION100',
+      invite_url: 'http://kition.ai/signup?ref=KITION100',
+      reward_per_invite: 10_000,
+      referral_count: 7,
+      rewarded_referral_count: 5,
+      rewarded_credits: 50_000,
+      invite_limit: 20,
+      invite_remaining: 13,
+    }],
+    ['malformed invite URL', {
+      invite_code: 'KITION100',
+      invite_url: 'not a URL',
+      reward_per_invite: 10_000,
+      referral_count: 7,
+      rewarded_referral_count: 5,
+      rewarded_credits: 50_000,
+      invite_limit: 20,
+      invite_remaining: 13,
+    }],
+    ['unexpected reward amount', {
+      invite_code: 'KITION100',
+      invite_url: 'https://kition.ai/signup?ref=KITION100',
+      reward_per_invite: 9_999,
+      referral_count: 7,
+      rewarded_referral_count: 5,
+      rewarded_credits: 50_000,
+      invite_limit: 20,
+      invite_remaining: 13,
+    }],
+    ['negative count', {
+      invite_code: 'KITION100',
+      invite_url: 'https://kition.ai/signup?ref=KITION100',
+      reward_per_invite: 10_000,
+      referral_count: -1,
+      rewarded_referral_count: 0,
+      rewarded_credits: 0,
+      invite_limit: 20,
+      invite_remaining: 20,
+    }],
+    ['fractional count', {
+      invite_code: 'KITION100',
+      invite_url: 'https://kition.ai/signup?ref=KITION100',
+      reward_per_invite: 10_000,
+      referral_count: 1.5,
+      rewarded_referral_count: 0,
+      rewarded_credits: 0,
+      invite_limit: 20,
+      invite_remaining: 19,
+    }],
+    ['unsafe count', {
+      invite_code: 'KITION100',
+      invite_url: 'https://kition.ai/signup?ref=KITION100',
+      reward_per_invite: 10_000,
+      referral_count: Number.MAX_SAFE_INTEGER + 1,
+      rewarded_referral_count: 0,
+      rewarded_credits: 0,
+      invite_limit: 0,
+      invite_remaining: 0,
+    }],
+    ['non-finite amount', {
+      invite_code: 'KITION100',
+      invite_url: 'https://kition.ai/signup?ref=KITION100',
+      reward_per_invite: 10_000,
+      referral_count: 1,
+      rewarded_referral_count: 1,
+      rewarded_credits: Number.POSITIVE_INFINITY,
+      invite_limit: 0,
+      invite_remaining: 0,
+    }],
+    ['rewarded count above referral count', {
+      invite_code: 'KITION100',
+      invite_url: 'https://kition.ai/signup?ref=KITION100',
+      reward_per_invite: 10_000,
+      referral_count: 1,
+      rewarded_referral_count: 2,
+      rewarded_credits: 20_000,
+      invite_limit: 20,
+      invite_remaining: 19,
+    }],
+    ['remaining above finite limit', {
+      invite_code: 'KITION100',
+      invite_url: 'https://kition.ai/signup?ref=KITION100',
+      reward_per_invite: 10_000,
+      referral_count: 1,
+      rewarded_referral_count: 1,
+      rewarded_credits: 10_000,
+      invite_limit: 20,
+      invite_remaining: 21,
+    }],
+    ['remaining with unlimited sentinel', {
+      invite_code: 'KITION100',
+      invite_url: 'https://kition.ai/signup?ref=KITION100',
+      reward_per_invite: 10_000,
+      referral_count: 1,
+      rewarded_referral_count: 1,
+      rewarded_credits: 10_000,
+      invite_limit: 0,
+      invite_remaining: 1,
+    }],
+  ])('rejects an invalid referral summary: %s', async (_caseName, response) => {
+    requestPortalReferralSummary.mockResolvedValue(response)
+
+    const { getPortalReferralSummary } = await import('./portalAccount')
+    await expect(getPortalReferralSummary()).rejects.toThrow(
+      'Kition referral summary response is invalid.',
+    )
   })
 
   it('dedupes concurrent portal restore requests', async () => {

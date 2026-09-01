@@ -236,6 +236,17 @@ export type PortalSessionStatusResponse = {
   credit_summary?: PortalCreditSummary
 }
 
+export type PortalReferralSummary = {
+  invite_code: string
+  invite_url: string
+  reward_per_invite: number
+  referral_count: number
+  rewarded_referral_count: number
+  rewarded_credits: number
+  invite_limit: number
+  invite_remaining: number
+}
+
 export function startPortalConnect() {
   return request
     .post<PortalConnectStartResponse | { data?: PortalConnectStartResponse }>(
@@ -258,6 +269,14 @@ export function getPortalSessionStatus(accessToken: string) {
     .post<PortalSessionStatusResponse | { data?: PortalSessionStatusResponse }>(
       '/v1/desktop/portal/session/status',
       { access_token: accessToken },
+    )
+    .then((response: any) => response?.data || response)
+}
+
+export function getPortalReferralSummary() {
+  return request
+    .get<PortalReferralSummary | { data?: PortalReferralSummary }>(
+      '/v1/desktop/portal/referral',
     )
     .then((response: any) => response?.data || response)
 }
