@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import request from './request'
@@ -27,11 +29,36 @@ describe('desktop API', () => {
     vi.mocked(request.post).mockReset()
   })
 
-  it('loads the portal referral summary with GET and unwraps the desktop envelope', async () => {
-    vi.mocked(request.get).mockResolvedValue({ data: referralSummary })
+  it('loads the once-unwrapped portal referral summary with GET', async () => {
+    vi.mocked(request.get).mockResolvedValue(referralSummary)
 
     await expect(getPortalReferralSummary()).resolves.toEqual(referralSummary)
     expect(request.get).toHaveBeenCalledWith('/v1/desktop/portal/referral')
     expect(request.post).not.toHaveBeenCalled()
+  })
+
+  it('does not unwrap a reserved data field inside the wire summary', async () => {
+    const summaryWithReservedData = {
+      ...referralSummary,
+      data: {
+        ...referralSummary,
+        invite_code: 'NESTED100',
+      },
+    }
+    vi.mocked(request.get).mockResolvedValue(summaryWithReservedData)
+
+    await expect(getPortalReferralSummary()).resolves.toEqual(summaryWithReservedData)
+  })
+
+  it('publishes a credential-free HTTPS invite URL contract', () => {
+    const schema = JSON.parse(
+      readFileSync(resolve('contracts/account/referral-summary.schema.json'), 'utf8'),
+    )
+    const inviteURL = schema.properties.invite_url
+    const pattern = new RegExp(inviteURL.pattern)
+
+    expect(inviteURL.format).toBe('uri')
+    expect(pattern.test('https://kition.ai/signup?ref=KITION100')).toBe(true)
+    expect(pattern.test('https://user:password@kition.ai/signup?ref=KITION100')).toBe(false)
   })
 })

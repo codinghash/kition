@@ -273,12 +273,8 @@ export function getPortalSessionStatus(accessToken: string) {
     .then((response: any) => response?.data || response)
 }
 
-export function getPortalReferralSummary() {
-  return request
-    .get<PortalReferralSummary | { data?: PortalReferralSummary }>(
-      '/v1/desktop/portal/referral',
-    )
-    .then((response: any) => response?.data || response)
+export function getPortalReferralSummary(): Promise<PortalReferralSummary> {
+  return request.get<PortalReferralSummary>('/v1/desktop/portal/referral')
 }
 
 export function logoutPortalSession(accessToken: string) {

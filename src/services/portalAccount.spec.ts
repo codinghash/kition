@@ -301,6 +301,28 @@ describe('portal account service', () => {
     expect(secureValues.get('kition.portal.account.session.v1')).toBeUndefined()
   })
 
+  it('rejects a once-unwrapped summary with a reserved data field', async () => {
+    const validSummary = {
+      invite_code: 'KITION100',
+      invite_url: 'https://kition.ai/signup?ref=KITION100',
+      reward_per_invite: 10_000,
+      referral_count: 7,
+      rewarded_referral_count: 5,
+      rewarded_credits: 50_000,
+      invite_limit: 20,
+      invite_remaining: 13,
+    }
+    requestPortalReferralSummary.mockResolvedValue({
+      ...validSummary,
+      data: validSummary,
+    })
+
+    const { getPortalReferralSummary } = await import('./portalAccount')
+    await expect(getPortalReferralSummary()).rejects.toThrow(
+      'Kition referral summary response is invalid.',
+    )
+  })
+
   it.each([
     ['missing field', {
       invite_code: 'KITION100',
@@ -345,6 +367,16 @@ describe('portal account service', () => {
     ['malformed invite URL', {
       invite_code: 'KITION100',
       invite_url: 'not a URL',
+      reward_per_invite: 10_000,
+      referral_count: 7,
+      rewarded_referral_count: 5,
+      rewarded_credits: 50_000,
+      invite_limit: 20,
+      invite_remaining: 13,
+    }],
+    ['credential-bearing invite URL', {
+      invite_code: 'KITION100',
+      invite_url: 'https://user:password@kition.ai/signup?ref=KITION100',
       reward_per_invite: 10_000,
       referral_count: 7,
       rewarded_referral_count: 5,

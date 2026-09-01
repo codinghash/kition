@@ -24,7 +24,7 @@
     "invite_url": {
       "type": "string",
       "format": "uri",
-      "pattern": "^[Hh][Tt][Tt][Pp][Ss]://"
+      "pattern": "^[Hh][Tt][Tt][Pp][Ss]://(?![^/?#]*@)"
     },
     "reward_per_invite": {
       "type": "integer",

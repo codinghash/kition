@@ -23,7 +23,8 @@ documented destination.
 invite code and HTTPS invite URL, the fixed 10,000-credit reward per invite,
 referral and rewarded-referral counts, rewarded credits, and invite limit and
 remaining values. The client displays the returned invite URL without deriving
-or reconstructing it.
+or reconstructing it. The invite URL must not contain embedded username or
+password credentials.
 
 All count, amount, and limit fields are finite non-negative safe integers. A
 rewarded-referral count cannot exceed the referral count. A positive invite
