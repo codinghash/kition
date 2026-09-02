@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import fsp from 'node:fs/promises'
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
@@ -11,6 +11,7 @@ import { normalizeRuntimeLabel, RUNTIME_LABEL_ENV } from './runtime-label.mjs'
 const desktopConfigDirName = '.kition'
 const desktopConfigFileName = 'config.toml'
 const defaultHealthTimeoutMs = 20000
+const runtimeCapabilityFilename = '.runtime-capability'
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url))
 const defaultDesktopConfigPath = path.join(moduleDir, 'defaults', 'config.toml')
@@ -272,6 +273,39 @@ export class BackendSupervisor {
     return this.baseURL
   }
 
+  capabilityToken() {
+    if (this.desktopCapabilityToken) return this.desktopCapabilityToken
+    const dataDir = String(this.env.data_dir || '').trim()
+    if (!dataDir) {
+      throw new Error('desktop runtime capability directory is unavailable')
+    }
+    fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 })
+    const capabilityPath = path.join(dataDir, runtimeCapabilityFilename)
+    const readCapability = () => {
+      const value = fs.readFileSync(capabilityPath, 'utf8').trim()
+      if (!/^[A-Za-z0-9_-]{40,}$/.test(value)) {
+        throw new Error('desktop runtime capability is invalid')
+      }
+      fs.chmodSync(capabilityPath, 0o600)
+      return value
+    }
+    try {
+      this.desktopCapabilityToken = readCapability()
+      return this.desktopCapabilityToken
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error
+    }
+    const value = randomBytes(32).toString('base64url')
+    try {
+      fs.writeFileSync(capabilityPath, `${value}\n`, { encoding: 'utf8', flag: 'wx', mode: 0o600 })
+      this.desktopCapabilityToken = value
+    } catch (error) {
+      if (error?.code !== 'EEXIST') throw error
+      this.desktopCapabilityToken = readCapability()
+    }
+    return this.desktopCapabilityToken
+  }
+
   status() {
     const skipAPI = String(process.env.KITION_DESKTOP_SKIP_API || '').toLowerCase() === 'true'
     return {
@@ -513,6 +547,7 @@ export class BackendSupervisor {
       KITION_DESKTOP_CACHE_DIR: this.env.cache_dir,
       KITION_DESKTOP_DATA_DIR: this.env.data_dir,
       KITION_DESKTOP_WORKSPACE_DIR: this.env.workspace_dir,
+      KITION_DESKTOP_CAPABILITY_TOKEN: this.capabilityToken(),
     }
 
     // Merge feature-toggle env overrides (proxy etc.). Empty-string entries

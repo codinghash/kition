@@ -7,7 +7,7 @@ import {
   type PortalAccountSession,
   type PortalReferralSummary,
 } from '@/api/desktop'
-import { deleteSecureValue, getSecureValue, openExternalURL, setSecureValue } from '@/services/desktop'
+import { deleteSecureValue, getSecureValue, openExternalURL, requestDesktopReferralSummary, setSecureValue } from '@/services/desktop'
 import {
   desktopProviderCatalog,
   loadDesktopSettings,
@@ -536,7 +536,10 @@ export async function ensurePortalAccountSessionRestored() {
 }
 
 export async function getPortalReferralSummary(): Promise<PortalReferralSummary> {
-  const summary = normalizePortalReferralSummary(await requestPortalReferralSummary())
+  const desktopSummary = await requestDesktopReferralSummary()
+  const summary = normalizePortalReferralSummary(
+    desktopSummary ?? await requestPortalReferralSummary(),
+  )
   if (!summary) {
     throw new Error('Kition referral summary response is invalid.')
   }

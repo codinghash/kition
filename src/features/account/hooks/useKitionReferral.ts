@@ -30,6 +30,11 @@ type KitionReferralSnapshot = {
 
 const referralRequests = new Map<string, Promise<PortalReferralSummary>>()
 
+export function kitionReferralSessionIdentity(session: PortalAccountSession | null) {
+  if (!session) return ''
+  return `${session.user_id}:${session.token_prefix}:${session.expires_at}`
+}
+
 function requestReferralSummary(sessionIdentity: string) {
   const existing = referralRequests.get(sessionIdentity)
   if (existing) return existing
@@ -44,7 +49,7 @@ function requestReferralSummary(sessionIdentity: string) {
 }
 
 export function useKitionReferral(session: PortalAccountSession | null) {
-  const sessionIdentity = session?.access_token.trim() || ''
+  const sessionIdentity = kitionReferralSessionIdentity(session)
   const sessionIdentityRef = useRef(sessionIdentity)
   const requestVersionRef = useRef(0)
   const [snapshot, setSnapshot] = useState<KitionReferralSnapshot>({

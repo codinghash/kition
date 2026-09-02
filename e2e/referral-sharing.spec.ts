@@ -9,7 +9,7 @@ const INVITE_URL = 'https://kition.ai/invite/REFERRAL_E2E'
 type ReferralResponseMode = 'success' | 'failure'
 
 async function installReferralDesktopBridge(page: Page) {
-  await page.addInitScript(({ accountSessionKey, accessToken }) => {
+  await page.addInitScript(({ accountSessionKey, accessToken, inviteURL }) => {
     const stateWindow = window as typeof window & Record<string, unknown>
     const vaultPath = '/tmp/kition-referral-e2e-vault'
     const vault = {
@@ -62,6 +62,22 @@ async function installReferralDesktopBridge(page: Page) {
       ReadSecureValue: async (key: string) => secureValues.get(key) || '',
       DeleteSecureValue: async (key: string) => secureValues.delete(key),
       OpenExternalURL: async () => {},
+      RuntimeReferralSummary: async () => {
+        stateWindow.__runtimeReferralCalls = Number(stateWindow.__runtimeReferralCalls || 0) + 1
+        if (stateWindow.__referralResponseMode === 'failure') {
+          throw new Error('referral unavailable')
+        }
+        return {
+          invite_code: 'REFERRAL_E2E',
+          invite_url: inviteURL,
+          reward_per_invite: 10_000,
+          referral_count: 3,
+          rewarded_referral_count: 2,
+          rewarded_credits: 20_000,
+          invite_limit: 5,
+          invite_remaining: 2,
+        }
+      },
       ListVaults: async () => registry(),
       AddVault: async () => ({ vault, registry: registry() }),
       RemoveVault: async () => registry(),
@@ -80,7 +96,7 @@ async function installReferralDesktopBridge(page: Page) {
         },
       },
     })
-  }, { accountSessionKey: ACCOUNT_SESSION_KEY, accessToken: ACCESS_TOKEN })
+  }, { accountSessionKey: ACCOUNT_SESSION_KEY, accessToken: ACCESS_TOKEN, inviteURL: INVITE_URL })
 }
 
 async function fulfillRuntime(route: Route, data: unknown, status = 200) {
@@ -95,6 +111,9 @@ async function fulfillRuntime(route: Route, data: unknown, status = 200) {
 
 async function installReferralRuntime(page: Page, mode: () => ReferralResponseMode) {
   await mockLocalWorkspaceApi(page)
+  await page.addInitScript((initialMode) => {
+    (window as typeof window & { __referralResponseMode?: ReferralResponseMode }).__referralResponseMode = initialMode
+  }, mode())
 
   await page.route('**/api/v1/desktop/portal/session/status', async (route) => {
     const requestBody = route.request().postDataJSON() as { access_token?: string }
@@ -118,21 +137,8 @@ async function installReferralRuntime(page: Page, mode: () => ReferralResponseMo
     })
   })
 
-  await page.route('**/api/v1/desktop/portal/referral', async (route) => {
-    if (mode() === 'failure') {
-      await fulfillRuntime(route, null, 502)
-      return
-    }
-    await fulfillRuntime(route, {
-      invite_code: 'REFERRAL_E2E',
-      invite_url: INVITE_URL,
-      reward_per_invite: 10_000,
-      referral_count: 3,
-      rewarded_referral_count: 2,
-      rewarded_credits: 20_000,
-      invite_limit: 5,
-      invite_remaining: 2,
-    })
+  await page.route('**/api/v1/desktop/portal/referral', async () => {
+    throw new Error('renderer must use the Electron referral bridge')
   })
 }
 
@@ -151,6 +157,7 @@ test.describe('referral sharing', () => {
     await expect(card).toContainText('You earn 10,000 credits for each rewarded invite')
     await expect(card).toContainText('2 of 5 invites remaining')
     await expect(card).toContainText('20,000')
+    await expect.poll(() => page.evaluate(() => Number((window as typeof window & { __runtimeReferralCalls?: number }).__runtimeReferralCalls || 0))).toBe(1)
 
     await page.getByTestId('kition-referral-copy').click()
     await expect(card.getByRole('status')).toContainText('Invite link copied')
@@ -166,6 +173,9 @@ test.describe('referral sharing', () => {
     await expect(card.getByRole('alert')).toContainText('Invite details are temporarily unavailable')
 
     responseMode = 'success'
+    await page.evaluate(() => {
+      (window as typeof window & { __referralResponseMode?: ReferralResponseMode }).__referralResponseMode = 'success'
+    })
     await page.getByTestId('kition-referral-retry').click()
     await expect(page.getByTestId('kition-referral-url')).toHaveValue(INVITE_URL)
     await expect(card.getByRole('alert')).toHaveCount(0)

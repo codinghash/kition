@@ -4,7 +4,7 @@ import { Check, Copy, Gift, LoaderCircle, RefreshCw } from 'lucide-react'
 import type { PortalAccountSession } from '@/api/desktop'
 import { Button } from '@/components/ui'
 import { trackProductEvent } from '@/features/analytics/lib/productAnalytics'
-import { useKitionReferral } from '@/features/account/hooks/useKitionReferral'
+import { kitionReferralSessionIdentity, useKitionReferral } from '@/features/account/hooks/useKitionReferral'
 import { copyTextToClipboard } from '@/features/support/lib/supportDiagnostics'
 import { useTranslation } from '@/i18n'
 
@@ -15,9 +15,10 @@ export function KitionReferralCard({ session }: { session: PortalAccountSession 
   const { state, retry } = useKitionReferral(session)
   const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle')
   const copyVersionRef = useRef(0)
-  const sessionIdentityRef = useRef(session.access_token)
-  if (sessionIdentityRef.current !== session.access_token) {
-    sessionIdentityRef.current = session.access_token
+  const sessionIdentity = kitionReferralSessionIdentity(session)
+  const sessionIdentityRef = useRef(sessionIdentity)
+  if (sessionIdentityRef.current !== sessionIdentity) {
+    sessionIdentityRef.current = sessionIdentity
     copyVersionRef.current += 1
   }
   const titleId = useId()
@@ -27,7 +28,6 @@ export function KitionReferralCard({ session }: { session: PortalAccountSession 
   const formatNumber = (value: number) => new Intl.NumberFormat(i18n.resolvedLanguage).format(value)
 
   useEffect(() => {
-    const sessionIdentity = session.access_token
     sessionIdentityRef.current = sessionIdentity
     copyVersionRef.current += 1
     setCopyStatus('idle')
@@ -39,12 +39,12 @@ export function KitionReferralCard({ session }: { session: PortalAccountSession 
         sessionIdentityRef.current = ''
       }
     }
-  }, [session.access_token])
+  }, [sessionIdentity])
 
   async function copyInviteLink() {
     if (!summary || copyStatus === 'copying') return
 
-    const targetIdentity = session.access_token
+    const targetIdentity = sessionIdentity
     const copyVersion = ++copyVersionRef.current
     setCopyStatus('copying')
 

@@ -9,6 +9,7 @@ const requestPortalReferralSummary = vi.fn()
 const logoutPortalSession = vi.fn()
 const syncProviderModelCatalog = vi.fn()
 const openExternalURL = vi.fn()
+const requestDesktopReferralSummary = vi.fn()
 
 vi.mock('@/api/desktop', () => ({
   startPortalConnect,
@@ -24,6 +25,7 @@ vi.mock('@/services/providerModelCatalog', () => ({
 
 vi.mock('@/services/desktop', () => ({
   openExternalURL,
+  requestDesktopReferralSummary,
   getSecureValue: vi.fn(async (key: string) => secureValues.get(key) || ''),
   setSecureValue: vi.fn(async (key: string, value: string) => {
     secureValues.set(key, value)
@@ -56,6 +58,8 @@ describe('portal account service', () => {
     syncProviderModelCatalog.mockReset()
     syncProviderModelCatalog.mockImplementation(async (settings) => settings)
     openExternalURL.mockReset()
+    requestDesktopReferralSummary.mockReset()
+    requestDesktopReferralSummary.mockResolvedValue(null)
     vi.useRealTimers()
   })
 
