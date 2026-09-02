@@ -231,6 +231,23 @@
       "canceled": "已取消",
       "inactive": "停用"
     },
+    "referral": {
+      "title": "邀请好友",
+      "description": "每有一位获得奖励的受邀者，你可获得 {{credits}} 积分。邀请奖励积分仅发放给你，不发放给受邀者。",
+      "loading": "正在加载邀请详情",
+      "unavailable": "邀请详情暂时不可用。",
+      "retry": "重试",
+      "linkLabel": "邀请链接",
+      "copy": "复制邀请链接",
+      "copying": "正在复制邀请链接",
+      "copied": "邀请链接已复制",
+      "copyFailed": "无法复制邀请链接。请选择 URL 并手动复制。",
+      "rewardedInvites": "已获奖励的邀请",
+      "creditsEarned": "已获得积分",
+      "availability": "邀请名额",
+      "remaining": "还可邀请 {{remaining}} 人（共 {{limit}} 人）",
+      "unlimited": "不限邀请人数"
+    },
     "signOut": "退出",
     "support": "支持",
     "terms": "条款",

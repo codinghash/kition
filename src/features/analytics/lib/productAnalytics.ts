@@ -21,6 +21,8 @@ export const PRODUCT_ANALYTICS_EVENT_NAMES = [
   'update_check_completed',
   'update_install_completed',
   'support_opened',
+  'referral_invite_viewed',
+  'referral_invite_copy_completed',
 ] as const
 
 export type ProductAnalyticsEventName = typeof PRODUCT_ANALYTICS_EVENT_NAMES[number]

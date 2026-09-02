@@ -930,6 +930,29 @@ async function handleSubmitFeedback(_event, request) {
   })
 }
 
+async function handleRuntimeReferralSummary() {
+  if (!backendSupervisor) {
+    throw new Error('desktop runtime is unavailable')
+  }
+  const response = await net.fetch(`${backendSupervisor.baseUrl()}/api/v1/desktop/portal/referral`, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      'X-Kition-Desktop-Capability': backendSupervisor.capabilityToken(),
+    },
+  })
+  let payload = null
+  try {
+    payload = JSON.parse(await response.text())
+  } catch {
+    throw new Error('Kition invite details could not be loaded')
+  }
+  if (!response.ok || !payload || typeof payload !== 'object') {
+    throw new Error('Kition invite details could not be loaded')
+  }
+  return payload.data ?? payload
+}
+
 async function handleSavePdfFile(_event, request) {
   const win = await createMainWindow()
   const defaultFilename = String(request?.default_filename || 'document.pdf').toLowerCase().endsWith('.pdf')
@@ -2013,6 +2036,7 @@ async function registerIpcHandlers() {
   ipcMain.handle(IPC_CHANNELS.copyDocumentHtml, handleCopyDocumentHtml)
   ipcMain.handle(IPC_CHANNELS.copyImage, handleCopyImage)
   ipcMain.handle(IPC_CHANNELS.readClipboardImage, () => readClipboardImagePayload(clipboard))
+  ipcMain.handle(IPC_CHANNELS.runtimeReferralSummary, handleRuntimeReferralSummary)
   ipcMain.handle(IPC_CHANNELS.submitFeedback, handleSubmitFeedback)
   ipcMain.handle(IPC_CHANNELS.listWorkspaceDocuments, handleListWorkspaceDocuments)
   ipcMain.handle(IPC_CHANNELS.readWorkspaceDocument, handleReadWorkspaceDocument)

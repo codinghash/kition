@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kition.ai/contracts/account/referral-summary.schema.json",
+  "title": "Kition Desktop Referral Summary",
+  "description": "Public referral summary returned by GET /api/v1/desktop/portal/referral.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "invite_code",
+    "invite_url",
+    "reward_per_invite",
+    "referral_count",
+    "rewarded_referral_count",
+    "rewarded_credits",
+    "invite_limit",
+    "invite_remaining"
+  ],
+  "properties": {
+    "invite_code": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": ".*\\S.*"
+    },
+    "invite_url": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^[Hh][Tt][Tt][Pp][Ss]://(?![^/?#]*@)"
+    },
+    "reward_per_invite": {
+      "type": "integer",
+      "const": 10000
+    },
+    "referral_count": {
+      "$ref": "#/$defs/nonNegativeSafeInteger"
+    },
+    "rewarded_referral_count": {
+      "$ref": "#/$defs/nonNegativeSafeInteger",
+      "description": "Must not exceed referral_count."
+    },
+    "rewarded_credits": {
+      "$ref": "#/$defs/nonNegativeSafeInteger"
+    },
+    "invite_limit": {
+      "$ref": "#/$defs/nonNegativeSafeInteger",
+      "description": "Zero indicates no finite invite limit."
+    },
+    "invite_remaining": {
+      "$ref": "#/$defs/nonNegativeSafeInteger",
+      "description": "Must be zero when invite_limit is zero and must not exceed a finite invite_limit."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "invite_limit": { "const": 0 }
+        }
+      },
+      "then": {
+        "properties": {
+          "invite_remaining": { "const": 0 }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "nonNegativeSafeInteger": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  }
+}

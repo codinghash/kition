@@ -25,6 +25,7 @@ type KitionDesktopBridge = {
   CopyDocumentHtml?: (request: CopyDocumentHtmlRequest) => Promise<boolean>
   CopyImage?: (request: { url: string }) => Promise<boolean>
   ReadClipboardImage?: () => Promise<DesktopClipboardImage | null>
+  RuntimeReferralSummary?: () => Promise<unknown>
   SubmitFeedback?: (request: FeedbackReportSubmissionRequest) => Promise<FeedbackReportSubmissionResponse>
   ListWorkspaceDocuments?: () => Promise<WorkspaceDocumentListResponse>
   ReadWorkspaceDocument?: (request: WorkspaceDocumentPathRequest) => Promise<WorkspaceDocument>
@@ -601,6 +602,12 @@ export function resolveApiURL(path: string) {
   }
 
   return `${getApiBaseURL()}${normalizeApiPath(path)}`
+}
+
+export async function requestDesktopReferralSummary(): Promise<unknown | null> {
+  const bridge = getDesktopBridge()
+  if (!bridge?.RuntimeReferralSummary) return null
+  return bridge.RuntimeReferralSummary()
 }
 
 export function resolvePublicFileURL(path: string) {

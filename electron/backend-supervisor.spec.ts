@@ -104,3 +104,24 @@ describe('backend runtime shutdown', () => {
     expect(supervisor.start).toHaveBeenCalledWith({ replaceExisting: true })
   })
 })
+
+describe('desktop runtime capability', () => {
+	it('persists one private capability across supervisors without exposing it in status', async () => {
+		const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'kition-runtime-capability-'))
+		const env = {
+			backend_url: 'http://127.0.0.1:18101',
+			log_file: '',
+			data_dir: dataDir,
+		}
+		const first = new BackendSupervisor(env)
+		const second = new BackendSupervisor(env)
+
+		const firstToken = first.capabilityToken()
+		const secondToken = second.capabilityToken()
+
+		expect(firstToken).toMatch(/^[A-Za-z0-9_-]{40,}$/)
+		expect(secondToken).toBe(firstToken)
+		expect(JSON.stringify(first.status())).not.toContain(firstToken)
+		await fs.rm(dataDir, { recursive: true, force: true })
+	})
+})
