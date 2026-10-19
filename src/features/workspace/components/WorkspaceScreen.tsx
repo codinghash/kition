@@ -49,13 +49,14 @@ import {
   type AgentTurnContext,
   buildActiveBrowserTabContext,
   buildAgentTurnContext,
+  finalizeAgentTurnContext,
   mapBrowserPageContextToAgentBrowserContext,
 } from '@/features/agent/lib/agentTurnContext'
+import type { MarkdownImageInsertionSnapshot } from '@/features/document/editor/editor/markdown-image-insertion'
 import { useDocumentExport } from '@/features/document/hooks/useDocumentExport'
 import { useWorkspaceDocumentSession } from '@/features/document/hooks/useWorkspaceDocumentSession'
 import type { DocumentCreationPreset } from '@/features/document/lib/documentCreation'
 import type { DocumentAskAgentRequest } from '@/features/document/lib/documentAgentActions'
-import { createBoardWorkspaceFile } from '@/features/whiteboard/lib/boardFile'
 import type { WhiteboardAgentBridge } from '@/features/whiteboard/lib/whiteboardAgentBridge'
 import { runtimeSupportsWhiteboard } from '@/features/whiteboard/lib/whiteboardCapabilities'
 import { AgentFloatingLauncher } from '@/features/agent/components/AgentFloatingLauncher'
@@ -89,6 +90,7 @@ import { useWorkspaceTopbarActions } from '@/features/workspace/hooks/useWorkspa
 import { useWorkspaceTreeActions } from '@/features/workspace/hooks/useWorkspaceTreeActions'
 import { useWorkspaceTreeState } from '@/features/workspace/hooks/useWorkspaceTreeState'
 import { useWorkspaceTabs } from '@/features/workspace/hooks/useWorkspaceTabs'
+import { useWorkspaceBoardCreation } from '@/features/workspace/hooks/useWorkspaceBoardCreation'
 import { setPinnedTabsWorkspace } from '@/features/document/editor/hooks/usePinnedTabs'
 import {
   applyWorkspaceBrowserSessionSnapshot,
@@ -164,6 +166,9 @@ const DocumentTemplateLibraryDialog = lazy(() =>
 )
 const KitableTemplateLibraryDialog = lazy(() =>
   import('@/features/table/components/KitableTemplateLibraryDialog').then((module) => ({ default: module.KitableTemplateLibraryDialog })),
+)
+const WhiteboardTemplateLibraryDialog = lazy(() =>
+  import('@/features/whiteboard/components/WhiteboardTemplateLibraryDialog').then((module) => ({ default: module.WhiteboardTemplateLibraryDialog })),
 )
 const TableFileImportDialog = lazy(() =>
   import('@/features/table/components/TableFileImportDialog').then((module) => ({ default: module.TableFileImportDialog })),
@@ -452,6 +457,17 @@ export function WorkspaceScreen({
     taskMode: 'auto',
     browserEnabled: false,
   })
+  const markdownImageInsertionSnapshotRef = useRef<MarkdownImageInsertionSnapshot | null>(null)
+  const handleAgentInsertionContextChange = useCallback((
+    documentPath: string,
+    context: MarkdownImageInsertionSnapshot | null,
+  ) => {
+    if (context) {
+      markdownImageInsertionSnapshotRef.current = context
+    } else if (markdownImageInsertionSnapshotRef.current?.documentPath === documentPath) {
+      markdownImageInsertionSnapshotRef.current = null
+    }
+  }, [])
   const activeWhiteboardPathRef = useRef('')
   const whiteboardAgentBridgesRef = useRef<Record<string, WhiteboardAgentBridge>>({})
   const prepareAgentBrowserContextRef = useRef<
@@ -476,7 +492,10 @@ export function WorkspaceScreen({
   > | null>(null)
   const getAgentTurnContext = useCallback(
     async (): Promise<AgentTurnContext> => {
-      const base = agentTurnContextRef.current
+      const base = finalizeAgentTurnContext({
+        baseContext: agentTurnContextRef.current,
+        markdownImageInsertionSnapshot: markdownImageInsertionSnapshotRef.current,
+      })
       const whiteboardPath = activeWhiteboardPathRef.current
       const whiteboardContext = base.paneContext === 'whiteboard'
         ? whiteboardAgentBridgesRef.current[whiteboardPath]?.buildContext()
@@ -666,7 +685,10 @@ export function WorkspaceScreen({
     },
     onWhiteboardPatch: ({ boardPath, patch, provisional }) => {
       if (!whiteboardAgentAvailable) return
-      whiteboardAgentBridgesRef.current[boardPath]?.receivePatch(patch, provisional)
+      const activeBoardPath = activeWhiteboardPathRef.current
+      const bridge = whiteboardAgentBridgesRef.current[boardPath]
+        || whiteboardAgentBridgesRef.current[activeBoardPath]
+      bridge?.receivePatch(patch, provisional)
     },
     onWhiteboardPatchCancelled: ({ boardPath }) => {
       whiteboardAgentBridgesRef.current[boardPath]?.cancelPreview()
@@ -1111,33 +1133,17 @@ export function WorkspaceScreen({
     updateSnapshots,
   })
 
-  const handleCreateBoard = useCallback(async () => {
-    workspaceTree.setCreateMenuOpen(false)
-    setSaving(true)
-    setError('')
-    setFeedback('')
-
-    try {
-      const created = await createBoardWorkspaceFile({ folder: createMenuFolder })
-      if (createMenuFolder) {
-        workspaceTree.expandFolders([createMenuFolder])
-      }
-      await refreshWorkspaceDocuments(undefined, { silent: true, treeOnly: true })
-      openBoard(created.path)
-      notify.success(t('feedback.boardCreated'))
-    } catch (requestError: any) {
-      setError(requestError?.message || t('errors.createBoardFailed'))
-    } finally {
-      setSaving(false)
-    }
-  }, [
-    createMenuFolder,
+  const boardCreation = useWorkspaceBoardCreation({
+    closeCreateMenu: () => workspaceTree.setCreateMenuOpen(false),
+    createFailedMessage: t('errors.createBoardFailed'),
+    expandFolder: workspaceTree.expandFolders,
     openBoard,
     refreshWorkspaceDocuments,
+    setError,
+    setFeedback,
     setSaving,
-    t,
-    workspaceTree,
-  ])
+    successMessage: t('feedback.boardCreated'),
+  })
   refreshWorkspaceDocumentsRef.current = refreshWorkspaceDocuments
 
   const handleCreateDocumentFromTemplate = useCallback(async (
@@ -3385,6 +3391,18 @@ export function WorkspaceScreen({
           />
         </Suspense>
       ) : null}
+      {boardCreation.dialogState ? (
+        <Suspense fallback={null}>
+          <WhiteboardTemplateLibraryDialog
+            open
+            busy={saving}
+            onOpenChange={(open) => {
+              if (!open) boardCreation.closeTemplateDialog()
+            }}
+            onSelect={boardCreation.createBoard}
+          />
+        </Suspense>
+      ) : null}
       {kitableTemplateDialogState ? (
         <Suspense fallback={null}>
           <KitableTemplateLibraryDialog
@@ -3574,7 +3592,7 @@ export function WorkspaceScreen({
               },
               onCreateBoard: () => {
                 onCloseProfile?.()
-                void handleCreateBoard()
+                boardCreation.openTemplateDialog(createMenuFolder)
               },
               onOpen: (path) => {
                 onCloseProfile?.()
@@ -3762,6 +3780,7 @@ export function WorkspaceScreen({
                       window.dispatchEvent(new CustomEvent('kition:agent:focus-composer'))
                     },
                     onAskDocumentAgent: (request) => void handleDocumentAskAgent(request),
+                    onAgentInsertionContextChange: handleAgentInsertionContextChange,
                     onSaveDocumentTitle: (nextTitle: string) => void saveDocumentTitle(nextTitle),
                     onDecideDocumentRevisionChange: (changeId, decision) => {
                       if (activeDocumentRevision) {

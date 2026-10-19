@@ -10,7 +10,10 @@ import {
   type BoardPageRecord,
   type BoardRecord,
 } from './boardRecords'
-import type { WhiteboardElement } from './whiteboardTypes'
+import { repairBoardHierarchyRecords } from './boardHierarchy'
+import { repairBoardBindingRecords } from './boardBindingEngine'
+import { BoardSpatialIndex } from './boardSpatialIndex'
+import type { WhiteboardBounds, WhiteboardElement, WhiteboardPoint } from './whiteboardTypes'
 
 export type BoardRecordUpdate = {
   before: BoardRecord
@@ -61,6 +64,7 @@ export class BoardStore {
   private historyGeneration = 0
   private recordsCache: readonly BoardRecord[] | null = null
   private elementsCache: readonly WhiteboardElement[] | null = null
+  private readonly spatialIndex = new BoardSpatialIndex()
   private revision = 0
   private snapshot: BoardStoreSnapshot = {
     revision: 0,
@@ -110,6 +114,12 @@ export class BoardStore {
       : DEFAULT_BOARD_PAGE_ID
   }
 
+  getPages() {
+    return this.getRecords().filter((record): record is BoardPageRecord => (
+      record.record_type === 'page'
+    ))
+  }
+
   getCurrentPageElements(): readonly WhiteboardElement[] {
     if (!this.elementsCache) {
       const pageId = this.getCurrentPageId()
@@ -118,8 +128,19 @@ export class BoardStore {
           record.record_type === 'element' && record.page_id === pageId
         ))
         .map(boardElementFromRecord)
+      this.spatialIndex.sync(this.elementsCache)
     }
     return this.elementsCache
+  }
+
+  queryCurrentPageElements(bounds: WhiteboardBounds) {
+    this.getCurrentPageElements()
+    return this.spatialIndex.query(bounds)
+  }
+
+  queryCurrentPageElementsAtPoint(point: WhiteboardPoint, tolerance = 0) {
+    this.getCurrentPageElements()
+    return this.spatialIndex.queryPoint(point, tolerance)
   }
 
   getNextElementIndex(pageId = this.getCurrentPageId()) {
@@ -528,6 +549,10 @@ function normalizeBoardRecords(records: Iterable<BoardRecord>) {
   }
   normalized.set(normalizedMeta.id, normalizedMeta)
 
+  pages
+    .sort((left, right) => left.index - right.index || left.id.localeCompare(right.id))
+    .forEach((page, index) => normalized.set(page.id, { ...page, index }))
+
   for (const record of normalized.values()) {
     if (
       record.record_type === 'element'
@@ -536,6 +561,15 @@ function normalizeBoardRecords(records: Iterable<BoardRecord>) {
       normalized.set(record.id, { ...record, page_id: activePageId })
     }
   }
+  const repairedElements = repairBoardHierarchyRecords(
+    [...normalized.values()].filter((record): record is BoardElementRecord => (
+      record.record_type === 'element'
+    )),
+  )
+  for (const record of repairedElements) normalized.set(record.id, record)
+  const repairedRecords = repairBoardBindingRecords([...normalized.values()])
+  normalized.clear()
+  for (const record of repairedRecords) normalized.set(record.id, record)
   return normalized
 }
 

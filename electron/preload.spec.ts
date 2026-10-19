@@ -50,13 +50,22 @@ describe('sandboxed desktop preload', () => {
       { path: 'onboarding/manifest.json' },
     )
 
-    await bridge.ReadClipboardImage()
-    expect(invoke).toHaveBeenCalledWith(IPC_CHANNELS.readClipboardImage)
+		await bridge.ReadClipboardImage()
+		expect(invoke).toHaveBeenCalledWith(IPC_CHANNELS.readClipboardImage)
+
+		await bridge.RuntimeReferralSummary()
+		expect(invoke).toHaveBeenCalledWith(IPC_CHANNELS.runtimeReferralSummary)
 
     await bridge.ChooseAgentAnalysisDirectory({ suggested_path: '../project' })
     expect(invoke).toHaveBeenCalledWith(
       IPC_CHANNELS.chooseAgentAnalysisDirectory,
       { suggested_path: '../project' },
+    )
+
+    await bridge.OpenWorkspaceWindow({ path: '/Users/alice/projects/notes' })
+    expect(invoke).toHaveBeenCalledWith(
+      IPC_CHANNELS.openWorkspaceWindow,
+      { path: '/Users/alice/projects/notes' },
     )
 
     for (const channel of Object.values(IPC_CHANNELS)) {

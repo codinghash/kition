@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { WhiteboardAgentPreviewControls } from '@/features/whiteboard/components/WhiteboardAgentPreview'
 import { WhiteboardAgentScopeControl } from '@/features/whiteboard/components/WhiteboardAgentScopeControl'
 import { WhiteboardCanvas } from '@/features/whiteboard/components/WhiteboardCanvas'
+import { WhiteboardSelectionToolbar } from '@/features/whiteboard/components/WhiteboardSelectionToolbar'
+import { WhiteboardMinimap } from '@/features/whiteboard/components/WhiteboardMinimap'
 import { WhiteboardToolbar } from '@/features/whiteboard/components/WhiteboardToolbar'
 import { WhiteboardStylePanel } from '@/features/whiteboard/components/WhiteboardStylePanel'
 import { WhiteboardTopActions } from '@/features/whiteboard/components/WhiteboardTopActions'
@@ -12,6 +14,10 @@ import { useWhiteboardEditor } from '@/features/whiteboard/hooks/useWhiteboardEd
 import { buildWhiteboardAgentContext, type WhiteboardAgentScope } from '@/features/whiteboard/lib/whiteboardAgentContext'
 import type { WhiteboardAgentBridge } from '@/features/whiteboard/lib/whiteboardAgentBridge'
 import type { WhiteboardPoint } from '@/features/whiteboard/lib/whiteboardTypes'
+import {
+  cloneWhiteboardTestRecords,
+  installWhiteboardTestBridge,
+} from '@/features/whiteboard/testing/whiteboardTestBridge'
 import { useTranslation } from 'react-i18next'
 
 import './whiteboard.css'
@@ -21,6 +27,7 @@ export function WhiteboardEditorPane({
   agentBusy = false,
   onAgentBridgeChange,
   onCancelAgent,
+  onOpenAgent,
   path,
   title,
 }: {
@@ -28,6 +35,7 @@ export function WhiteboardEditorPane({
   agentBusy?: boolean
   onAgentBridgeChange?: (path: string, bridge: WhiteboardAgentBridge | null) => void
   onCancelAgent?: () => void
+  onOpenAgent?: () => void
   path: string
   title: string
 }) {
@@ -63,12 +71,14 @@ export function WhiteboardEditorPane({
     available: agentAvailable,
     buildContext: () => agentAvailable
       ? buildWhiteboardAgentContext({
+          activeStyle: controller.activeStyle,
           canvasSize,
           path,
           scope: agentScope,
           selectedElementIds: controller.selectedElementIds,
           store: controller.store,
           title,
+          tool: controller.tool,
           viewport: controller.viewport,
         }) || undefined
       : undefined,
@@ -81,9 +91,11 @@ export function WhiteboardEditorPane({
     agentPatch.cancel,
     agentPatch.receivePatch,
     agentScope,
+    controller.activeStyle,
     canvasSize,
     controller.selectedElementIds,
     controller.store,
+    controller.tool,
     controller.viewport,
     path,
     title,
@@ -94,10 +106,40 @@ export function WhiteboardEditorPane({
     return () => onAgentBridgeChange?.(path, null)
   }, [agentBridge, onAgentBridgeChange, path])
 
+  useEffect(() => installWhiteboardTestBridge(() => ({
+    activeStyle: { ...controller.activeStyle },
+    canRedo: controller.canRedo,
+    canUndo: controller.canUndo,
+    currentPageId: controller.currentPageId,
+    interactionState: controller.interactionState,
+    path,
+    records: cloneWhiteboardTestRecords(controller.records),
+    selectedElementIds: [...controller.selectedElementIds],
+    shapeType: controller.shapeType,
+    tool: controller.tool,
+    viewport: { ...controller.viewport },
+  })), [
+    controller.activeStyle,
+    controller.canRedo,
+    controller.canUndo,
+    controller.currentPageId,
+    controller.interactionState,
+    controller.records,
+    controller.selectedElementIds,
+    controller.shapeType,
+    controller.tool,
+    controller.viewport,
+    path,
+  ])
+
   const cancelAgentPreview = useCallback(() => {
     agentPatch.cancel()
     if (agentBusy) onCancelAgent?.()
   }, [agentBusy, agentPatch, onCancelAgent])
+  const askAgentAboutSelection = useCallback(() => {
+    setAgentScope('selection')
+    onOpenAgent?.()
+  }, [onOpenAgent])
 
   return (
     <div
@@ -107,6 +149,7 @@ export function WhiteboardEditorPane({
     >
       <WhiteboardCanvas
         agentPreview={agentPatch.state.preview}
+        canvasSize={canvasSize}
         controller={controller}
         onSizeChange={handleSizeChange}
         title={title}
@@ -117,6 +160,12 @@ export function WhiteboardEditorPane({
         title={title}
       />
       <WhiteboardToolbar controller={controller} canvasSize={canvasSize} />
+      <WhiteboardSelectionToolbar
+        agentAvailable={agentAvailable}
+        controller={controller}
+        onAskAgent={askAgentAboutSelection}
+      />
+      <WhiteboardMinimap canvasSize={canvasSize} controller={controller} />
       <WhiteboardStylePanel controller={controller} />
       <WhiteboardAgentScopeControl
         available={agentAvailable}

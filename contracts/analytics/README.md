@@ -14,6 +14,10 @@ model responses, API keys, tokens, URLs, browser history, email addresses, or
 account identifiers. Product events are separate from crash and support
 diagnostics.
 
+Referral analytics use fixed view and copy-completion event names. Copy
+completion may include only the coarse result. Neither event may include an
+invite code, invite URL, clipboard content, or account identity.
+
 When `KITION_ANALYTICS_ENDPOINT` is configured at build time, the client sends
 JSON batches with this shape:
 

@@ -84,6 +84,7 @@ import {
 import { importWorkspaceFileIntoDataTable } from '@/features/table/lib/importWorkspaceFileIntoDataTable'
 import { buildAgentShellApprovalFollowup } from '@/features/agent/lib/agentShellApproval'
 import { readAgentWhiteboardPatchFrame } from '@/features/agent/lib/agentWhiteboardStream'
+import type { MarkdownImageInsertionContext } from '@/features/document/editor/editor/markdown-image-insertion'
 
 type WorkspaceAgentTurnContext = {
   activeDocumentPath?: string
@@ -103,6 +104,7 @@ type WorkspaceAgentTurnContext = {
    *  context. Frontend reads this from the active workflow tab. */
   activeWorkflowId?: string
   whiteboardContext?: AgentWhiteboardContext
+  markdownImageInsertionContext?: MarkdownImageInsertionContext
 }
 
 type UseWorkspaceAgentOptions = {
@@ -633,6 +635,7 @@ export function useWorkspaceAgent({
     agentAbortControllers.current[sessionId] = abortController
     let tableMutated = false
     let whiteboardPathForTurn = ''
+    let pendingWhiteboardPatch: AgentWhiteboardPatch | null = null
 
     try {
       let preparedBrowserContext: AgentBrowserContext | undefined
@@ -710,6 +713,7 @@ export function useWorkspaceAgent({
         buildAgentDocumentEditingPromptContext({
           activeDocumentPath,
           activeDocumentFormat,
+          markdownImageInsertionContext: turnContext?.markdownImageInsertionContext,
         }),
       ].filter(Boolean).join('\n\n')
       let executionMode = followup?.executionMode
@@ -786,12 +790,40 @@ export function useWorkspaceAgent({
         onEvent: (event) => {
           const whiteboardFrame = readAgentWhiteboardPatchFrame(event)
           if (whiteboardFrame && whiteboardPathForTurn) {
+            pendingWhiteboardPatch = whiteboardFrame.provisional
+              ? whiteboardFrame.patch
+              : null
             onWhiteboardPatch?.({
-              boardPath: whiteboardPathForTurn,
+              boardPath: whiteboardFrame.boardPath || whiteboardPathForTurn,
               patch: whiteboardFrame.patch,
               provisional: whiteboardFrame.provisional,
               sessionId,
             })
+          }
+
+          if (
+            event.type === 'tool_call'
+            && event.tool_call?.status === 'completed'
+            && event.tool_call.tool_name === 'whiteboard_propose_patch'
+            && pendingWhiteboardPatch
+            && whiteboardPathForTurn
+          ) {
+            onWhiteboardPatch?.({
+              boardPath: whiteboardPathForTurn,
+              patch: pendingWhiteboardPatch,
+              provisional: false,
+              sessionId,
+            })
+            pendingWhiteboardPatch = null
+          }
+
+          if (
+            event.type === 'tool_error'
+            && event.tool_call?.tool_name === 'whiteboard_propose_patch'
+            && whiteboardPathForTurn
+          ) {
+            pendingWhiteboardPatch = null
+            onWhiteboardPatchCancelled?.({ boardPath: whiteboardPathForTurn, sessionId })
           }
 
           if (

@@ -4,17 +4,25 @@ import type {
   AgentWhiteboardElement,
 } from '@/types/whiteboardAgent'
 
+import { getBoardAgentElementKind } from './boardElementDefinitions'
+import { exportBoardSvg } from './boardExport'
+import { lintWhiteboard } from './whiteboardLint'
+import {
+  DEFAULT_WHITEBOARD_STYLE,
+  getWhiteboardElementStyle,
+} from './whiteboardStyle'
 import type { BoardStore } from './boardStore'
 import {
   getWhiteboardElementBounds,
   unionWhiteboardBounds,
-  whiteboardBoundsIntersect,
 } from './whiteboardGeometry'
 import type {
   WhiteboardBounds,
   WhiteboardElement,
   WhiteboardPoint,
   WhiteboardViewport,
+  WhiteboardElementStyle,
+  WhiteboardTool,
 } from './whiteboardTypes'
 
 export type WhiteboardAgentScope = 'selection' | 'viewport' | 'board'
@@ -26,11 +34,13 @@ const CLUSTER_SIZE = 100
 
 export function buildWhiteboardAgentContext(input: {
   canvasSize: WhiteboardPoint
+  activeStyle?: WhiteboardElementStyle
   path: string
   scope: WhiteboardAgentScope
   selectedElementIds: readonly string[]
   store: BoardStore
   title: string
+  tool?: WhiteboardTool
   viewport: WhiteboardViewport
 }): AgentWhiteboardContext | null {
   const path = normalizePortableBoardPath(input.path)
@@ -43,9 +53,7 @@ export function buildWhiteboardAgentContext(input: {
     .filter((id) => elements.some((element) => element.id === id))
     .slice(0, MAX_SELECTED_ELEMENTS)
   const selectedSet = new Set(selectedIds)
-  const visible = elements.filter((element) => (
-    whiteboardBoundsIntersect(viewport, getWhiteboardElementBounds(element))
-  ))
+  const visible = input.store.queryCurrentPageElements(viewport)
 
   let included: readonly WhiteboardElement[]
   if (input.scope === 'selection') {
@@ -66,6 +74,20 @@ export function buildWhiteboardAgentContext(input: {
   const compactElements = included.slice(0, MAX_CONTEXT_ELEMENTS)
   const includedIds = new Set(compactElements.map((element) => element.id))
   const omitted = elements.filter((element) => !includedIds.has(element.id))
+  const currentPageId = input.store.getCurrentPageId()
+  const currentPage = input.store.getPages().find((page) => page.id === currentPageId)
+  const lintFindings = lintWhiteboard({
+    bindings: input.store.getRecords().filter((record) => record.record_type === 'binding'),
+    elements,
+  })
+  const snapshotElements = compactElements.filter((element) => (
+    input.scope !== 'selection' || selectedSet.has(element.id)
+  ))
+  const snapshotSvg = snapshotElements.length > 0 ? exportBoardSvg({
+    elements: snapshotElements,
+    title: input.title,
+    padding: 16,
+  }) : ''
 
   return {
     type: 'whiteboard.context',
@@ -82,6 +104,23 @@ export function buildWhiteboardAgentContext(input: {
     clusters: buildOmittedClusters(omitted),
     recent_operations: input.store.getRecentUserOperations(50),
     source_refs: [],
+    current_page: {
+      id: currentPageId,
+      name: currentPage?.name || input.title,
+    },
+    current_tool: input.tool || 'select',
+    active_style: whiteboardStyleToAgentStyle(input.activeStyle || DEFAULT_WHITEBOARD_STYLE),
+    viewport_snapshot: snapshotSvg
+      ? {
+          mime_type: 'image/svg+xml',
+          data_url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(snapshotSvg)}`,
+        }
+      : undefined,
+    lint_findings: lintFindings.map((finding) => ({
+      code: finding.code,
+      element_ids: finding.elementIds,
+      severity: finding.severity,
+    })),
   }
 }
 
@@ -90,7 +129,7 @@ export function whiteboardElementToAgentElement(
 ): AgentWhiteboardElement {
   const result: AgentWhiteboardElement = {
     id: element.id,
-    kind: resolveAgentElementKind(element),
+    kind: getBoardAgentElementKind(element),
     bounds: getWhiteboardElementBounds(element),
   }
   const text = element.kind === 'text' || element.kind === 'rectangle'
@@ -101,24 +140,31 @@ export function whiteboardElementToAgentElement(
   if (element.sourceRefIds?.length) {
     result.source_ref_ids = [...new Set(element.sourceRefIds)].slice(0, 16)
   }
+  result.locked = Boolean(element.locked)
+  result.rotation = element.rotation || 0
+  result.style = whiteboardStyleToAgentStyle(getWhiteboardElementStyle(element))
+  if (element.kind === 'rectangle') {
+    result.shape_type = element.shapeType
+    result.shape_style = element.shapeStyle
+  }
+  if (element.kind === 'connector') {
+    result.connector = {
+      type: element.connectorType || 'straight',
+      start_arrowhead: element.startArrowhead || 'none',
+      end_arrowhead: element.endArrowhead || 'arrow',
+    }
+  }
   return result
 }
 
-function resolveAgentElementKind(
-  element: WhiteboardElement,
-): AgentWhiteboardElement['kind'] {
-  if (element.kind === 'text') return 'text'
-  if (element.kind === 'connector') return 'connector'
-  if (element.kind === 'stroke') return 'freehand'
-  if (element.kind === 'image') return 'image'
-  switch (element.shapeStyle) {
-    case 'sticky': return 'sticky'
-    case 'mind-node': return 'mind_node'
-    case 'flow-node': return 'flow_node'
-    case 'frame': return 'frame'
-    case 'group': return 'group'
-    case 'image-placeholder': return 'image'
-    default: return 'shape'
+function whiteboardStyleToAgentStyle(style: WhiteboardElementStyle) {
+  return {
+    stroke_color: style.strokeColor,
+    fill_color: style.fillColor,
+    opacity: style.opacity,
+    fill_style: style.fillStyle,
+    dash_style: style.dashStyle,
+    stroke_size: style.strokeSize,
   }
 }
 

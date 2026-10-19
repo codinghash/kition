@@ -189,6 +189,23 @@
       "canceled": "Cancelada",
       "inactive": "Inativa"
     },
+    "referral": {
+      "title": "Convide amigos",
+      "description": "Você ganha {{credits}} créditos por cada convite recompensado. Os créditos de indicação são concedidos a você, não à pessoa convidada.",
+      "loading": "Carregando detalhes do convite",
+      "unavailable": "Os detalhes do convite estão temporariamente indisponíveis.",
+      "retry": "Tentar novamente",
+      "linkLabel": "Link de convite",
+      "copy": "Copiar link de convite",
+      "copying": "Copiando link de convite",
+      "copied": "Link de convite copiado",
+      "copyFailed": "Não foi possível copiar o link de convite. Selecione a URL e copie-a manualmente.",
+      "rewardedInvites": "Convites recompensados",
+      "creditsEarned": "Créditos ganhos",
+      "availability": "Disponibilidade de convites",
+      "remaining": "Restam {{remaining}} de {{limit}} convites",
+      "unlimited": "Convites ilimitados"
+    },
     "signOut": "Sair",
     "support": "Suporte",
     "terms": "Termos",

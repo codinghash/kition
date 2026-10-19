@@ -79,6 +79,9 @@ describe('Board .kiboard serialization', () => {
         y: 30,
         width: 160,
         height: 80,
+        mindMapBranchSide: 'right',
+        mindMapCollapsed: true,
+        mindMapDirection: 'down',
         shapeStyle: 'mind-node',
         text: 'Launch plan',
         sourceRefIds: ['document:brief'],
@@ -88,6 +91,9 @@ describe('Board .kiboard serialization', () => {
     expect(document.records).toEqual(expect.arrayContaining([
       expect.objectContaining({
         id: 'mind-1',
+        mindMapBranchSide: 'right',
+        mindMapCollapsed: true,
+        mindMapDirection: 'down',
         shapeStyle: 'mind-node',
         sourceRefIds: ['document:brief'],
         text: 'Launch plan',
@@ -150,6 +156,65 @@ describe('Board .kiboard serialization', () => {
         workspacePath: 'Attachments/launch.png',
         alt: 'Launch image',
       }),
+    ]))
+  })
+
+  it('round-trips optional connector binding terminals without changing the Board version', () => {
+    const document = parseBoardDocument(serializeBoardDocument(buildBoardDocument({
+      title: 'Connected board',
+      viewport: { x: 0, y: 0, zoom: 1 },
+      records: [
+        ...createBoardRecordsFromElements([
+          { id: 'target', kind: 'rectangle', x: 0, y: 0, width: 100, height: 80 },
+          {
+            id: 'connector',
+            kind: 'connector',
+            start: { x: 100, y: 40 },
+            end: { x: 220, y: 40 },
+            connectorRole: 'mind-map-branch',
+          },
+        ], 'Connected board'),
+        {
+          record_type: 'binding',
+          id: 'binding:connector:start',
+          binding_type: 'connector',
+          from_id: 'connector',
+          to_id: 'target',
+          terminal: 'start',
+          to_anchor: { x: 1, y: 0.5 },
+        },
+      ],
+    })))
+
+    expect(document.version).toBe(1)
+    expect(document.records).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'connector',
+        connectorRole: 'mind-map-branch',
+      }),
+      expect.objectContaining({
+        id: 'binding:connector:start',
+        terminal: 'start',
+        to_anchor: { x: 1, y: 0.5 },
+      }),
+    ]))
+  })
+
+  it('round-trips checkbox shapes while keeping legacy check marks readable', () => {
+    const document = parseBoardDocument(serializeBoardDocument(buildBoardDocument({
+      title: 'Checklist',
+      viewport: { x: 0, y: 0, zoom: 1 },
+      records: createBoardRecordsFromElements([
+        { id: 'x-box', kind: 'rectangle', x: 0, y: 0, width: 80, height: 80, shapeType: 'x-box' },
+        { id: 'check-box', kind: 'rectangle', x: 100, y: 0, width: 80, height: 80, shapeType: 'check-box' },
+        { id: 'legacy-check', kind: 'rectangle', x: 200, y: 0, width: 80, height: 80, shapeType: 'check' },
+      ], 'Checklist'),
+    })))
+
+    expect(document.records).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'x-box', shapeType: 'x-box' }),
+      expect.objectContaining({ id: 'check-box', shapeType: 'check-box' }),
+      expect.objectContaining({ id: 'legacy-check', shapeType: 'check' }),
     ]))
   })
 

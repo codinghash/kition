@@ -189,6 +189,23 @@
       "canceled": "Annulé",
       "inactive": "Inactif"
     },
+    "referral": {
+      "title": "Invitez des proches",
+      "description": "Vous gagnez {{credits}} crédits pour chaque invitation récompensée. Les crédits de parrainage vous sont attribués, et non à la personne invitée.",
+      "loading": "Chargement des informations d'invitation",
+      "unavailable": "Les informations d'invitation sont temporairement indisponibles.",
+      "retry": "Réessayer",
+      "linkLabel": "Lien d'invitation",
+      "copy": "Copier le lien d'invitation",
+      "copying": "Copie du lien d'invitation",
+      "copied": "Lien d'invitation copié",
+      "copyFailed": "Impossible de copier le lien d'invitation. Sélectionnez l'URL et copiez-la manuellement.",
+      "rewardedInvites": "Invitations récompensées",
+      "creditsEarned": "Crédits gagnés",
+      "availability": "Disponibilité des invitations",
+      "remaining": "{{remaining}} invitations restantes sur {{limit}}",
+      "unlimited": "Invitations illimitées"
+    },
     "signOut": "Se déconnecter",
     "support": "Assistance",
     "terms": "Conditions",

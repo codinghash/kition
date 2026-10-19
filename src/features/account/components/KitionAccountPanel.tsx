@@ -13,6 +13,7 @@ import {
 import { CreditUsageBadge } from '@/components/CreditUsageBadge'
 import { KitionLogoMark } from '@/components/KitionLogoMark'
 import { Button } from '@/components/ui'
+import { KitionReferralCard } from '@/features/account/components/KitionReferralCard'
 import { useKitionAccount } from '@/features/account/hooks/useKitionAccount'
 import { getKitionAccountLinks } from '@/features/account/lib/accountLinks'
 import {
@@ -199,6 +200,8 @@ export function KitionAccountPanel() {
               ))}
             </div>
           ) : null}
+
+          <KitionReferralCard session={session} />
 
           <div className="kition-account-panel__actions">
             {showTopupPrimary ? (
